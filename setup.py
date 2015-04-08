@@ -3,7 +3,11 @@
 
 from setuptools import setup, find_packages
 
-setup(name="protobufrpc",
-      version="0.1",
-      packages=find_packages(),  #    package_dir = { "" : "protobufrpc" },
-     )
+import protobufrpc
+
+
+setup(
+    name="protobufrpc",
+    version=protobufrpc.__version__,
+    packages=find_packages()
+)
