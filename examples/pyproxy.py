@@ -31,6 +31,7 @@ import gevent
 
 if __name__ == "__main__":
 
+
     def call_echo():
         request = EchoRequest()
         request.text = "Hello world!"
@@ -40,6 +41,7 @@ if __name__ == "__main__":
             print e.message
         else:
             PrintMessage(response, stdout, 0)
+
 
     channel = TcpChannel(("localhost", 8080))
     proxy = Proxy(Test_Stub(channel))

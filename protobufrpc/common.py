@@ -20,39 +20,42 @@
 
 from google.protobuf.service import RpcController
 
-def flatten( l ):
+
+def flatten(l):
     result = []
     for i in l:
-        if hasattr( i, "__iter__" ) and not isinstance( i, basestring ):
-            result.extend( flatten( i ) )
+        if hasattr(i, "__iter__") and not isinstance(i, basestring):
+            result.extend(flatten(i))
         else:
-            result.append( i )
+            result.append(i)
     return result
 
-class Controller( RpcController ):
+
+class Controller(RpcController):
     error = None
 
-    def Reset( self ):
+    def Reset(self):
         self.error = None
 
-    def Failed( self ):
+    def Failed(self):
         return self.error != None
 
-    def ErrorText( self ):
+    def ErrorText(self):
         return self.error
 
-    def StartCancel( self ):
+    def StartCancel(self):
         pass
 
-    def SetFailed( self, reason ):
+    def SetFailed(self, reason):
         self.error = reason
 
-    def IsCancelled( self ):
+    def IsCancelled(self):
         pass
 
-    def NotifyOnCancel( self, callback ):
+    def NotifyOnCancel(self, callback):
         pass
 
-class ServiceContainer( dict ):
-    def __getattr__( self, key ):
-        return self[ key ] 
+
+class ServiceContainer(dict):
+    def __getattr__(self, key):
+        return self[key]

@@ -31,15 +31,17 @@ import gevent
 
 if __name__ == "__main__":
 
+
     def call_echo():
-        channel = TcpChannel( ("localhost", 8080) )
-        proxy = Proxy( Test_Stub( channel ))
+        channel = TcpChannel(("localhost", 8080))
+        proxy = Proxy(Test_Stub(channel))
 
         request = EchoRequest()
         request.text = "Hello world!"
-        response = proxy.Test.Echo( request )
+        response = proxy.Test.Echo(request)
         for r in response:
-            PrintMessage( r, stdout, 0 )
+            PrintMessage(r, stdout, 0)
+
 
     greenlets = []
     for i in xrange(0, 10):

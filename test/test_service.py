@@ -24,57 +24,58 @@ from twisted.internet import reactor
 from twisted.internet.protocol import ClientCreator
 from test_suite_pb2 import Test, Test_Stub, EchoRequest, EchoResponse
 
-class TestService( Test ):
-	def Echo( self, rpc_controller, request, done ):
-		response = EchoResponse()
-		response.text = request.text
-		done( response )
 
-class ServiceTestCase( unittest.TestCase ):
-	def setUp( self ):
-		self.service = TestService()
-		self.udp_proto = tx.UdpChannel()
-		self.udp_proto.add_service( self.service )
-		self.factory = tx.Factory( self.service )
-		self.tcp_listener = reactor.listenTCP( 0, self.factory )
-		self.udp_listener = reactor.listenUDP( 0, self.udp_proto )
-		self.udp_proxy_port = None
-		self.tcp_proxy_proto = None
+class TestService(Test):
+    def Echo(self, rpc_controller, request, done):
+        response = EchoResponse()
+        response.text = request.text
+        done(response)
 
-	def tearDown( self ):
-		if self.udp_proxy_port:
-			self.udp_proxy_port.stopListening()
-		if self.tcp_proxy_proto:
-			self.tcp_proxy_proto.transport.loseConnection()
-		self.tcp_listener.stopListening()
-		self.udp_listener.stopListening()
 
-	def testTcpRpc( self ):
-		def connected( protocol ):
-			self.tcp_proxy_proto = protocol
-			text = "TCP Test"
-			request = EchoRequest()
-			request.text = text
-			proxy = tx.Proxy( Test_Stub( protocol ) )
-			echoed = proxy.Test.Echo( request )
-			echoed.addCallback( lambda r: self.assertEquals( r.text, text ) )
-			return echoed
+class ServiceTestCase(unittest.TestCase):
+    def setUp(self):
+        self.service = TestService()
+        self.udp_proto = tx.UdpChannel()
+        self.udp_proto.add_service(self.service)
+        self.factory = tx.Factory(self.service)
+        self.tcp_listener = reactor.listenTCP(0, self.factory)
+        self.udp_listener = reactor.listenUDP(0, self.udp_proto)
+        self.udp_proxy_port = None
+        self.tcp_proxy_proto = None
 
-		client = ClientCreator( reactor, tx.TcpChannel )
-		d = client.connectTCP( self.tcp_listener.getHost().host,
-			self.tcp_listener.getHost().port )
-		d.addCallback( connected )
-		return d
+    def tearDown(self):
+        if self.udp_proxy_port:
+            self.udp_proxy_port.stopListening()
+        if self.tcp_proxy_proto:
+            self.tcp_proxy_proto.transport.loseConnection()
+        self.tcp_listener.stopListening()
+        self.udp_listener.stopListening()
 
-	def testUdpRpc( self ):
-		protocol = tx.UdpChannel( self.udp_listener.getHost().host, 
-			self.udp_listener.getHost().port )
-		proxy = tx.Proxy( Test_Stub( protocol ) )
-		self.udp_proxy_port = reactor.listenUDP( 0, protocol )
-		text = "UDP Test"
-		request = EchoRequest()
-		request.text = text
-		echoed = proxy.Test.Echo( request )
-		echoed.addCallback( lambda r: self.assertEquals( r.text, text ) )
-		return echoed
+    def testTcpRpc(self):
+        def connected(protocol):
+            self.tcp_proxy_proto = protocol
+            text = "TCP Test"
+            request = EchoRequest()
+            request.text = text
+            proxy = tx.Proxy(Test_Stub(protocol))
+            echoed = proxy.Test.Echo(request)
+            echoed.addCallback(lambda r: self.assertEquals(r.text, text))
+            return echoed
 
+        client = ClientCreator(reactor, tx.TcpChannel)
+        d = client.connectTCP(self.tcp_listener.getHost().host,
+                              self.tcp_listener.getHost().port)
+        d.addCallback(connected)
+        return d
+
+    def testUdpRpc(self):
+        protocol = tx.UdpChannel(self.udp_listener.getHost().host,
+                                 self.udp_listener.getHost().port)
+        proxy = tx.Proxy(Test_Stub(protocol))
+        self.udp_proxy_port = reactor.listenUDP(0, protocol)
+        text = "UDP Test"
+        request = EchoRequest()
+        request.text = text
+        echoed = proxy.Test.Echo(request)
+        echoed.addCallback(lambda r: self.assertEquals(r.text, text))
+        return echoed

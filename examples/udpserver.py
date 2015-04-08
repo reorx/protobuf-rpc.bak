@@ -23,33 +23,36 @@ from test_pb2 import *
 from protobufrpc.tx import UdpChannel
 from twisted.internet import reactor
 
-class TestService( Test ):
-    def Echo( self, rpc_controller, request, done ):
+
+class TestService(Test):
+    def Echo(self, rpc_controller, request, done):
         response = EchoResponse()
         response.text = request.text
-        done( response )
+        done(response)
 
-    def Ping( self, rpc_controller, request, done ):
+    def Ping(self, rpc_controller, request, done):
         response = PingResponse()
-        done( response )
+        done(response)
 
-class MathService( Math ):
-    def Add( self, rpc_controller, request, done ):
+
+class MathService(Math):
+    def Add(self, rpc_controller, request, done):
         response = MathResponse()
         response.result = request.first + request.second
-        done( response )
+        done(response)
 
-    def Multiply( self, rpc_controller, request, done ):
+    def Multiply(self, rpc_controller, request, done):
         response = MathResponse()
         response.result = request.first * request.second
-        done( response )
+        done(response)
+
 
 testService = TestService()
 mathService = MathService()
 
 protocol = UdpChannel()
-protocol.add_service( testService )
-protocol.add_service( mathService )
+protocol.add_service(testService)
+protocol.add_service(mathService)
 
-reactor.listenUDP( 9999, protocol )
+reactor.listenUDP(9999, protocol)
 reactor.run()

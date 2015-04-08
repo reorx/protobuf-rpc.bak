@@ -25,6 +25,7 @@ from twisted.internet.protocol import ClientCreator
 from protobufrpc.tx import TcpChannel, Proxy
 from google.protobuf.text_format import *
 
+
 class TestService(Test):
     def Echo(self, rpc_controller, request, done):
         response = EchoResponse()
@@ -35,24 +36,28 @@ class TestService(Test):
         finally:
             done(response)
 
-    def Ping( self, rpc_controller, request, done ):
+    def Ping(self, rpc_controller, request, done):
         response = PingResponse()
-        done( response )
+        done(response)
 
-class MathService( Math ):
-    def Add( self, rpc_controller, request, done ):
+
+class MathService(Math):
+    def Add(self, rpc_controller, request, done):
         response = MathResponse()
         response.result = request.first + request.second
-        done( response )
+        done(response)
 
-    def Multiply( self, rpc_controller, request, done ):
+    def Multiply(self, rpc_controller, request, done):
         response = MathResponse()
         response.result = request.first * request.second
-        done( response )
+        done(response)
+
 
 if __name__ == "__main__":
-    c = ClientCreator( reactor, TcpChannel )
-    d = c.connectTCP( "localhost", 8080 )
+    c = ClientCreator(reactor, TcpChannel)
+    d = c.connectTCP("localhost", 8080)
+
+
     def add_service(protocol):
         testService = TestService()
         mathService = MathService()
@@ -60,35 +65,42 @@ if __name__ == "__main__":
         for s in services:
             protocol.add_service(s)
 
-    def print_response( response ):
-        print "response:", MessageToString( response )
-    def client_connected( protocol ):
-        proxy = Proxy( Test_Stub( protocol ), Math_Stub( protocol ))
+
+    def print_response(response):
+        print "response:", MessageToString(response)
+
+
+    def client_connected(protocol):
+        proxy = Proxy(Test_Stub(protocol), Math_Stub(protocol))
 
         request = EchoRequest()
         request.text = "Hello world!"
-        echoed = proxy.Test.Echo( request )
-        echoed.addCallback( print_response )
+        echoed = proxy.Test.Echo(request)
+        echoed.addCallback(print_response)
 
         request = PingRequest()
-        pinged = proxy.Test.Ping( request )
-        pinged.addCallback( print_response )
+        pinged = proxy.Test.Ping(request)
+        pinged.addCallback(print_response)
 
         request = MathBinaryOperationRequest()
-        request.first = 2;
-        request.second = 2;
-        mathAddd = proxy.Math.Add( request )
-        mathAddd.addCallback( print_response )
+        request.first = 2
+        request.second = 2
+        mathAddd = proxy.Math.Add(request)
+        mathAddd.addCallback(print_response)
 
-        mathMultiplyd = proxy.Math.Multiply( request )
-        mathMultiplyd.addCallback( print_response )
+        mathMultiplyd = proxy.Math.Multiply(request)
+        mathMultiplyd.addCallback(print_response)
 
-        dl = DeferredList( [ echoed, pinged, mathAddd, mathMultiplyd ] )
-        dl.addCallback( client_finished )
+        dl = DeferredList([echoed, pinged, mathAddd, mathMultiplyd])
+        dl.addCallback(client_finished)
 
         return dl
-    def client_finished( dl ):
+
+
+    def client_finished(dl):
         reactor.stop()
+
+
     d.addCallback(add_service)
-    
+
     reactor.run()

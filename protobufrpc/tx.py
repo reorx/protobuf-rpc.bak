@@ -43,11 +43,12 @@ class BaseChannel(google.protobuf.service.RpcChannel):
         google.protobuf.service.RpcChannel.__init__(self)
         self._pending = {}
         self._services = {}
-    
+
     def add_service(self, service):
         self._services[service.GetDescriptor().name] = service
 
-    def unserialize_response(self, serializedResponse, responseClass, rpcController):
+    def unserialize_response(self, serializedResponse, responseClass,
+                             rpcController):
         print "unserialize_response"
         response = responseClass()
         if serializedResponse.HasField('error'):
@@ -57,7 +58,7 @@ class BaseChannel(google.protobuf.service.RpcChannel):
             response.ParseFromString(serializedResponse.serialized_response)
 
         return response
-    
+
     def serialize_response(self, response, serializedRequest, controller):
         serializedResponse = Response()
         serializedResponse.id = serializedRequest.id
@@ -69,7 +70,7 @@ class BaseChannel(google.protobuf.service.RpcChannel):
             serializedResponse.serialized_response = response.SerializeToString()
 
         return serializedResponse
-    
+
     def serialize_rpc(self, serializedResponse):
         rpc = Rpc()
         rpcResponse = rpc.response.add()
@@ -79,8 +80,9 @@ class BaseChannel(google.protobuf.service.RpcChannel):
             rpcResponse.error.code = serializedResponse.error.code
             rpcResponse.error.text = serializedResponse.error.text
         return rpc
-    
-    def _call_method(self, methodDescriptor, rpcController, request, responseClass, done):
+
+    def _call_method(self, methodDescriptor, rpcController, request,
+                     responseClass, done):
         self.id += 1
         d = Deferred()
         d.addCallback(self.unserialize_response, responseClass, rpcController)
@@ -92,8 +94,9 @@ class BaseChannel(google.protobuf.service.RpcChannel):
         rpcRequest.serialized_request = request.SerializeToString()
         rpcRequest.id = self.id
         return rpc
-    
-    def CallMethod(self, methodDescriptor, rpcController, request, responseClass, done):
+
+    def CallMethod(self, methodDescriptor, rpcController, request,
+                   responseClass, done):
         # This method must be overridden.
         pass
 
@@ -106,19 +109,18 @@ class RpcErrors:
     CANNOT_DESERIALIZE_REQUEST = 4
     METHOD_ERROR = 5
 
-    msgs = ['Success',
-            'Error when unserializing Rpc message',
-            'Service not found',
-            'Method not found',
-            'Cannot deserialized request',
-            'Method Error']
+    msgs = ['Success', 'Error when unserializing Rpc message',
+            'Service not found', 'Method not found',
+            'Cannot deserialized request', 'Method Error']
 
 
 class TcpChannel(BaseChannel, Int32StringReceiver):
-    def CallMethod(self, methodDescriptor, rpcController, request, responseClass, done):
-        rpc = self._call_method(methodDescriptor, rpcController, request, responseClass, done)
+    def CallMethod(self, methodDescriptor, rpcController, request,
+                   responseClass, done):
+        rpc = self._call_method(methodDescriptor, rpcController, request,
+                                responseClass, done)
         self.sendString(rpc.SerializeToString())
-    
+
     def stringReceived(self, data):
         rpc = Rpc()
         rpc.ParseFromString(data)
@@ -126,19 +128,23 @@ class TcpChannel(BaseChannel, Int32StringReceiver):
         for serializedRequest in rpc.request:
             service = self._services[serializedRequest.method.split('.')[0]]
             if not service:
-                self.sendError(serializedRequest.id, RpcErrors.SERVICE_NOT_FOUND)
+                self.sendError(serializedRequest.id,
+                               RpcErrors.SERVICE_NOT_FOUND)
                 return
 
-            method = service.GetDescriptor().FindMethodByName(serializedRequest.method.split('.')[1])
+            method = service.GetDescriptor().FindMethodByName(
+                serializedRequest.method.split('.')[1])
             if not method:
-                self.sendError(serializedRequest.id, RpcErrors.METHOD_NOT_FOUND)
+                self.sendError(serializedRequest.id,
+                               RpcErrors.METHOD_NOT_FOUND)
                 return
 
             request = service.GetRequestClass(method)()
             request.ParseFromString(serializedRequest.serialized_request)
             controller = Controller()
             d = Deferred()
-            d.addCallback(self.serialize_response, serializedRequest, controller)
+            d.addCallback(self.serialize_response, serializedRequest,
+                          controller)
             d.addCallback(self.serialize_rpc)
             d.addCallback(lambda rpc: self.sendString(rpc.SerializeToString()))
             service.CallMethod(method, controller, request, d.callback)
@@ -156,65 +162,70 @@ class TcpChannel(BaseChannel, Int32StringReceiver):
         rpcResponse.error.text = RpcErrors.msgs[code]
         self.sendString(rpc.SerializeToString())
 
-    
+
 class UdpChannel(BaseChannel, DatagramProtocol):
-    def __init__( self, host=None, port=None ):
+    def __init__(self, host=None, port=None):
         self._host = host
         self._port = port
         self.connected = False
-        BaseChannel.__init__( self )
-    
+        BaseChannel.__init__(self)
+
     def startProtocol(self):
         if self._host and self._port:
             self.transport.connect(self._host, self._port)
             self.connected = True
 
-    def datagramReceived( self, data, (host, port) ):
+    def datagramReceived(self, data, (host, port)):
         rpc = Rpc()
-        rpc.ParseFromString( data )
+        rpc.ParseFromString(data)
         for serializedRequest in rpc.request:
-            service = self._services[ serializedRequest.method.split( '.' )[ 0 ] ]
+            service = self._services[serializedRequest.method.split('.')[0]]
 
             if not service:
-                self.sendError( serializedRequest.id, RpcErrors.SERVICE_NOT_FOUND, host, port )
+                self.sendError(serializedRequest.id,
+                               RpcErrors.SERVICE_NOT_FOUND, host, port)
                 return
 
-            method = service.GetDescriptor().FindMethodByName( serializedRequest.method.split( '.' )[ 1 ] )
+            method = service.GetDescriptor().FindMethodByName(
+                serializedRequest.method.split('.')[1])
             if not method:
-                self.sendError( serializedRequest.id, RpcErrors.METHOD_NOT_FOUND, host, port )
+                self.sendError(serializedRequest.id,
+                               RpcErrors.METHOD_NOT_FOUND, host, port)
                 return
 
-            request = service.GetRequestClass( method )()
-            request.ParseFromString( serializedRequest.serialized_request )
+            request = service.GetRequestClass(method)()
+            request.ParseFromString(serializedRequest.serialized_request)
             controller = Controller()
             d = Deferred()
-            d.addCallback( self.serialize_response, serializedRequest )
-            d.addCallback( self.serialize_rpc )
-            d.addCallback( lambda rpc: self.send_string( rpc.SerializeToString(), host, port ) )
-            service.CallMethod( method, controller, request, d.callback )
+            d.addCallback(self.serialize_response, serializedRequest)
+            d.addCallback(self.serialize_rpc)
+            d.addCallback(lambda rpc: self.send_string(rpc.SerializeToString(),
+                                                       host, port))
+            service.CallMethod(method, controller, request, d.callback)
 
         for serializedResponse in rpc.response:
             id = serializedResponse.id
-            if self._pending.has_key( id ):
-                self._pending[ id ].callback( serializedResponse )
+            if self._pending.has_key(id):
+                self._pending[id].callback(serializedResponse)
 
-    def send_string( self, data, host=None, port=None ):
+    def send_string(self, data, host=None, port=None):
         if host and port:
-            self.transport.write( data, (host, port) )
+            self.transport.write(data, (host, port))
         else:
-            self.transport.write( data )
-    
-    def CallMethod( self, methodDescriptor, rpcController, request, responseClass, done ):
-        rpc = self._call_method( methodDescriptor, request, responseClass, done )
-        self.send_string( rpc.SerializeToString() )
+            self.transport.write(data)
 
-    def sendError( self, id, code, host, port):
+    def CallMethod(self, methodDescriptor, rpcController, request,
+                   responseClass, done):
+        rpc = self._call_method(methodDescriptor, request, responseClass, done)
+        self.send_string(rpc.SerializeToString())
+
+    def sendError(self, id, code, host, port):
         rpc = Rpc()
         rpcResponse = rpc.response.add()
         rpcResponse.id = id
-        rpcResponse.error.code = code 
+        rpcResponse.error.code = code
         rpcResponse.error.text = RpcErrors.msgs[code]
-        self.sendString( rpc.SerializeToString(), host, port )
+        self.sendString(rpc.SerializeToString(), host, port)
 
 
 class Factory(twisted.internet.protocol.Factory):
@@ -226,7 +237,7 @@ class Factory(twisted.internet.protocol.Factory):
         self._services = {}
         for s in services:
             self._services[s.GetDescriptor().name] = s
-    
+
     def buildProtocol(self, addr):
         p = self.protocol()
         p.factory = self
@@ -235,6 +246,7 @@ class Factory(twisted.internet.protocol.Factory):
         if self._callback is not None:
             self._callback(p)
         return p
+
 
 class Proxy(object):
     class _Proxy(object):
@@ -247,12 +259,13 @@ class Proxy(object):
                 controller = Controller()
                 method(controller, request, d)
                 return d
+
             return lambda request: call(getattr(self._stub, key), request)
 
     def __init__(self, *stubs):
         self._stubs = {}
         for s in stubs:
             self._stubs[s.GetDescriptor().name] = self._Proxy(s)
-    
+
     def __getattr__(self, key):
         return self._stubs[key]

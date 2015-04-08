@@ -49,12 +49,9 @@ class RpcErrors:
     CANNOT_DESERIALIZE_REQUEST = 4
     METHOD_ERROR = 5
 
-    msgs = ['Success',
-            'Error when unserializing Rpc message',
-            'Service not found',
-            'Method not found',
-            'Cannot deserialized request',
-            'Method Error']
+    msgs = ['Success', 'Error when unserializing Rpc message',
+            'Service not found', 'Method not found',
+            'Cannot deserialized request', 'Method Error']
 
 
 class TcpChannel(google.protobuf.service.RpcChannel):
@@ -227,18 +224,20 @@ class TcpRequestHandler(SocketServer.BaseRequestHandler):
         rpc = Rpc()
         rpc.ParseFromString(data)
         for serializedRequest in rpc.request:
-            service = self.server.services.get(serializedRequest.method.split(
-                '.')[0])
+            service = self.server.services.get(
+                serializedRequest.method.split('.')[0])
             if not service:
-                self.send_error(serializedRequest.id, RpcErrors.SERVICE_NOT_FOUND)
+                self.send_error(serializedRequest.id,
+                                RpcErrors.SERVICE_NOT_FOUND)
                 return
 
             method = service.GetDescriptor().FindMethodByName(
                 serializedRequest.method.split('.')[1])
             if not method:
-                self.send_error(serializedRequest.id, RpcErrors.METHOD_NOT_FOUND)
+                self.send_error(serializedRequest.id,
+                                RpcErrors.METHOD_NOT_FOUND)
                 return
-                
+
             request = service.GetRequestClass(method)()
             request.ParseFromString(serializedRequest.serialized_request)
             controller = Controller()
@@ -247,11 +246,12 @@ class TcpRequestHandler(SocketServer.BaseRequestHandler):
             service.CallMethod(method, controller, request, callback)
 
             if controller.Failed():
-                self.send_error(serializedRequest.id, RpcErrors.METHOD_ERROR, controller.ErrorText())
+                self.send_error(serializedRequest.id, RpcErrors.METHOD_ERROR,
+                                controller.ErrorText())
                 return
 
-            serialized_response = self.serialize_response(
-                callback.response, serializedRequest)
+            serialized_response = self.serialize_response(callback.response,
+                                                          serializedRequest)
             response_rpc = self.serialize_rpc(serialized_response)
             self.send_string(response_rpc.SerializeToString())
 

@@ -27,7 +27,6 @@ import gevent
 
 
 class TestService(Test):
-
     def Echo(self, rpc_controller, request, done):
         response = EchoResponse()
         response.text = request.text
@@ -42,7 +41,6 @@ class TestService(Test):
 
 
 class MathService(Math):
-
     def Add(self, rpc_controller, request, done):
         response = MathResponse()
         response.result = request.first + request.second
@@ -53,13 +51,13 @@ class MathService(Math):
         response.result = request.first * request.second
         done(response)
 
+
 testService = TestService()
 mathService = MathService()
 
 
 def pri(socket, addr):
     print 'new conn'
-
 
 #server = TcpServer(("localhost", 8080), testService, mathService)
 #server.serve_forever()

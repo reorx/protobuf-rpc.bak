@@ -24,36 +24,39 @@ from protobufrpc.tx import UdpChannel, Proxy
 from twisted.internet import reactor, defer
 from google.protobuf.text_format import *
 
-def print_response( response ):
-	print "response:", MessageToString( response )
 
-def client_finished( dlist ):
-	reactor.stop()
+def print_response(response):
+    print "response:", MessageToString(response)
+
+
+def client_finished(dlist):
+    reactor.stop()
+
 
 protocol = UdpChannel("127.0.0.1", 9999)
-proxy = Proxy( Test_Stub( protocol ), Math_Stub( protocol ) )
+proxy = Proxy(Test_Stub(protocol), Math_Stub(protocol))
 
 reactor.listenUDP(0, protocol)
 
 request = EchoRequest()
 request.text = "Hello world!"
-echoed = proxy.Test.Echo( request )
-echoed.addCallback( print_response )
+echoed = proxy.Test.Echo(request)
+echoed.addCallback(print_response)
 
 request = PingRequest()
-pinged = proxy.Test.Ping( request )
-pinged.addCallback( print_response )
+pinged = proxy.Test.Ping(request)
+pinged.addCallback(print_response)
 
 request = MathBinaryOperationRequest()
-request.first = 2;
-request.second = 2;
-mathAddd = proxy.Math.Add( request )
-mathAddd.addCallback( print_response )
+request.first = 2
+request.second = 2
+mathAddd = proxy.Math.Add(request)
+mathAddd.addCallback(print_response)
 
-mathMultiplyd = proxy.Math.Multiply( request )
-mathMultiplyd.addCallback( print_response )
+mathMultiplyd = proxy.Math.Multiply(request)
+mathMultiplyd.addCallback(print_response)
 
-dlist = defer.DeferredList([ echoed, pinged, mathAddd, mathMultiplyd ])
-dlist.addCallback( client_finished )
+dlist = defer.DeferredList([echoed, pinged, mathAddd, mathMultiplyd])
+dlist.addCallback(client_finished)
 
 reactor.run()

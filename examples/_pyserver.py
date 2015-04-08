@@ -25,30 +25,33 @@ from test_pb2 import *
 from protobufrpc.synchronous import TcpServer
 import gevent
 
-class TestService( Test ):
-    def Echo( self, rpc_controller, request, done ):
+
+class TestService(Test):
+    def Echo(self, rpc_controller, request, done):
         response = EchoResponse()
         response.text = request.text
         print 'gevent sleep 3'
         gevent.sleep(3)
-        done( response )
+        done(response)
 
-    def Ping( self, rpc_controller, request, done ):
+    def Ping(self, rpc_controller, request, done):
         response = PingResponse()
-	done( response )
+        done(response)
 
-class MathService( Math ):
-    def Add( self, rpc_controller, request, done ):
+
+class MathService(Math):
+    def Add(self, rpc_controller, request, done):
         response = MathResponse()
         response.result = request.first + request.second
-        done( response )
+        done(response)
 
-    def Multiply( self, rpc_controller, request, done ):
+    def Multiply(self, rpc_controller, request, done):
         response = MathResponse()
         response.result = request.first * request.second
-        done( response )
+        done(response)
+
 
 testService = TestService()
 mathService = MathService()
-server = TcpServer( ("localhost", 8080), testService, mathService )
+server = TcpServer(("localhost", 8080), testService, mathService)
 server.serve_forever()
