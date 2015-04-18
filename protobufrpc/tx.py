@@ -21,10 +21,11 @@
 # THE SOFTWARE.
 
 import twisted.internet.protocol
-from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 from twisted.protocols.basic import Int32StringReceiver
 from twisted.internet.protocol import DatagramProtocol
+from twisted.internet.protocol import connectionDone
+from twisted.protocols.policies import ProtocolWrapper
 import google.protobuf.service
 from protobufrpc_pb2 import Rpc, Request, Response, Error
 from common import Controller
@@ -115,6 +116,10 @@ class RpcErrors:
 
 
 class TcpChannel(BaseChannel, Int32StringReceiver):
+    def __init__(self, lost_cb=None):
+        self._lost_cb = lost_cb
+        super(TcpChannel, self).__init__()
+
     def CallMethod(self, methodDescriptor, rpcController, request,
                    responseClass, done):
         rpc = self._call_method(methodDescriptor, rpcController, request,
@@ -135,13 +140,12 @@ class TcpChannel(BaseChannel, Int32StringReceiver):
             method = service.GetDescriptor().FindMethodByName(
                 serializedRequest.method.split('.')[1])
             if not method:
-                self.sendError(serializedRequest.id,
-                               RpcErrors.METHOD_NOT_FOUND)
+                self.sendError(serializedRequest.id, RpcErrors.METHOD_NOT_FOUND)
                 return
 
             request = service.GetRequestClass(method)()
             request.ParseFromString(serializedRequest.serialized_request)
-            controller = Controller()
+            controller = Controller(peer=self.addr)
             d = Deferred()
             d.addCallback(self.serialize_response, serializedRequest,
                           controller)
@@ -161,6 +165,11 @@ class TcpChannel(BaseChannel, Int32StringReceiver):
         rpcResponse.error.code = code
         rpcResponse.error.text = RpcErrors.msgs[code]
         self.sendString(rpc.SerializeToString())
+
+    def connectionLost(self, reason=connectionDone):
+        if self._lost_cb is not None:
+            addr = self.transport.getHost()
+            self._lost_cb(addr, reason)
 
 
 class UdpChannel(BaseChannel, DatagramProtocol):
@@ -231,21 +240,32 @@ class UdpChannel(BaseChannel, DatagramProtocol):
 class Factory(twisted.internet.protocol.Factory):
     protocol = TcpChannel
 
-    def __init__(self, services, protocol_callback=None):
-        self._callback = protocol_callback
-        self._protocols = []
+    def __init__(self, services, conn_lost_cb=None):
+        self._conn_lost_cb = conn_lost_cb
+        self._protocols = {}
         self._services = {}
         for s in services:
             self._services[s.GetDescriptor().name] = s
 
     def buildProtocol(self, addr):
-        p = self.protocol()
-        p.factory = self
+        p = ProtocolWrapper(self, self.protocol())
         p._services = self._services
-        self._protocols.append(p)
-        if self._callback is not None:
-            self._callback(p)
         return p
+
+    def registerProtocol(self, p):
+        """
+        Called by protocol to register itself.
+        """
+        self.protocols[p] = p.getHost()
+
+    def unregisterProtocol(self, p):
+        """
+        Called by protocols when they go away.
+        """
+        if p in self._protocols:
+            if self._conn_lost_cb is not None:
+                self._conn_lost_cb(self.protocol[p], p)
+            del self.protocols[p]
 
 
 class Proxy(object):

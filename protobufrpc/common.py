@@ -34,6 +34,13 @@ def flatten(l):
 class Controller(RpcController):
     error = None
 
+    def __init__(self, peer=None):
+        self._peer = peer
+
+    @property
+    def peer(self):
+        return self._peer
+
     def Reset(self):
         self.error = None
 
