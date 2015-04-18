@@ -19,6 +19,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
+from twisted.internet.address import _IPAddress
 
 import twisted.internet.protocol
 from twisted.internet.defer import Deferred
@@ -27,6 +28,7 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.protocol import connectionDone
 from twisted.protocols.policies import ProtocolWrapper
 import google.protobuf.service
+from twisted.python.failure import Failure
 from protobufrpc_pb2 import Rpc, Request, Response, Error
 from common import Controller
 
@@ -117,6 +119,10 @@ class RpcErrors:
 
 class TcpChannel(BaseChannel, Int32StringReceiver):
     def __init__(self, lost_cb=None):
+        """
+        :param (_IPAddress, Failure) -> None lost_cb: Tcp connection lost cb func
+        :return:
+        """
         self._lost_cb = lost_cb
         super(TcpChannel, self).__init__()
 
@@ -145,7 +151,7 @@ class TcpChannel(BaseChannel, Int32StringReceiver):
 
             request = service.GetRequestClass(method)()
             request.ParseFromString(serializedRequest.serialized_request)
-            controller = Controller(peer=self.addr)
+            controller = Controller(peer=self.transport.getPeer())
             d = Deferred()
             d.addCallback(self.serialize_response, serializedRequest,
                           controller)
@@ -168,7 +174,7 @@ class TcpChannel(BaseChannel, Int32StringReceiver):
 
     def connectionLost(self, reason=connectionDone):
         if self._lost_cb is not None:
-            addr = self.transport.getHost()
+            addr = self.transport.getPeer()
             self._lost_cb(addr, reason)
 
 
@@ -241,8 +247,13 @@ class Factory(twisted.internet.protocol.Factory):
     protocol = TcpChannel
 
     def __init__(self, services, conn_lost_cb=None):
+        """
+        :param (_IPAddress, ProtocolWrapper) -> None conn_lost_cb: connection lost cb func
+        :return:
+        """
         self._conn_lost_cb = conn_lost_cb
         self._protocols = {}
+        """:type _protocols: dict[ProtocolWrapper, _IPAddress]"""
         self._services = {}
         for s in services:
             self._services[s.GetDescriptor().name] = s
@@ -255,8 +266,9 @@ class Factory(twisted.internet.protocol.Factory):
     def registerProtocol(self, p):
         """
         Called by protocol to register itself.
+        :type p: ProtocolWrapper
         """
-        self.protocols[p] = p.getHost()
+        self._protocols[p] = p.getPeer()
 
     def unregisterProtocol(self, p):
         """
@@ -264,8 +276,21 @@ class Factory(twisted.internet.protocol.Factory):
         """
         if p in self._protocols:
             if self._conn_lost_cb is not None:
-                self._conn_lost_cb(self.protocol[p], p)
-            del self.protocols[p]
+                self._conn_lost_cb(self._protocols[p], p)
+            del self._protocols[p]
+
+    def closeConnectionByPeer(self, peer):
+        """
+        :param IPAddress peer: peer which issued this connection
+        :rtype boolean: close or not
+        """
+        closed = False
+        for protocol, _peer in self._protocols.iteritems():
+            if _peer == peer:
+                protocol.loseConnection()
+                closed = True
+        return closed
+
 
 
 class Proxy(object):
